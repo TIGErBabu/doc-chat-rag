@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
+pypdf
 # --- deciding in Nov ---
 # pgvector or chroma  (vector store)
-# pypdf               (pdf ingestion)
 # openai / anthropic  (llm api)
