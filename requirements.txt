@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 pypdf
-# --- deciding in Nov ---
-# pgvector or chroma  (vector store)
-# openai / anthropic  (llm api)
+sentence-transformers
+chromadb
+# --- deciding later ---
+# openai / anthropic  (llm api — needed for the /ask endpoint)
