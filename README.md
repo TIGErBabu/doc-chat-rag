@@ -18,13 +18,19 @@ API in FastAPI, served with Docker.
 
 ## Status
 
-Day 1 — scaffolding. The RAG pipeline itself gets built Nov–Dec 2026.
+Day 2 — ingestion, embeddings, and the vector store are in. The retrieve-and-answer flow (plus the API endpoints) comes next.
 
 ## Roadmap
 
-- [ ] Document ingestion (PDF -> chunks)
-- [ ] Embeddings + vector store
+- [x] Document ingestion (PDF -> chunks)
+- [x] Embeddings + vector store
 - [ ] Retrieval + reranking
 - [ ] FastAPI endpoints + simple UI
-- [ ] Dockerfile + deploy
+- [x] Dockerfile
+- [ ] Deploy
 - [ ] Eval set — do the answers hold up?
+
+## Key decisions so far
+
+- **Embeddings:** sentence-transformers (all-MiniLM-L6-v2), local and free. OpenAI embeddings are the production upgrade path.
+- **Vector store:** Chroma (embedded, zero infra). pgvector if this ever needs a real database.
