@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+python-multipart  # fastapi needs this to accept file uploads (/ingest)
 pypdf
 sentence-transformers
 chromadb
