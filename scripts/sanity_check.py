@@ -13,6 +13,9 @@ from app.store import add, query
 
 
 def main() -> None:
+    if len(sys.argv) < 2:
+        print('usage: python scripts/sanity_check.py <path-to-pdf> "your question here"')
+        sys.exit(1)
     pdf_path = sys.argv[1]
     question = sys.argv[2] if len(sys.argv) > 2 else "what is this about?"
 
