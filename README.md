@@ -11,14 +11,19 @@ Building a retrieval-augmented generation (RAG) app from scratch — part of my 
 ```
 PDFs -> chunk -> embed -> chroma
                               |
-user question -> retrieve -> rerank -> [LLM TODO] -> answer + citations
+user question -> retrieve -> rerank -> LLM (gpt-4o-mini) -> answer + citations
 ```
 
 API in FastAPI, served with Docker.
 
 ## Status
 
-Day 3 — retrieval + reranking are in, and the API has `/ingest` and `/ask`. One honest caveat: `/ask` returns the retrieved evidence chunks, not a generated answer. No LLM is wired up yet, so I am shipping the retrieval half first and marking the generator as the next step instead of faking it.
+Day 4 — the generator is wired in: `/ask` now returns a real LLM answer
+with citations, not just evidence chunks. There's also a v1 eval set
+(`scripts/eval_check.py`) — six golden questions with "what good looks
+like" notes for eyeball evaluation, including one deliberate trap
+("capital of France") to check the model says "I don't know" instead of
+answering from training data.
 
 ## Roadmap
 
@@ -28,9 +33,9 @@ Day 3 — retrieval + reranking are in, and the API has `/ingest` and `/ask`. On
 - [x] FastAPI endpoints (/ingest, /ask)
 - [ ] Simple UI
 - [x] Dockerfile
-- [ ] Wire an LLM into /ask (answer + citations)
+- [x] Wire an LLM into /ask (answer + citations)
 - [ ] Deploy
-- [ ] Eval set — do the answers hold up?
+- [x] Eval set v1 — eyeball checks (factual-correctness scoring is a later problem)
 
 ## Running it
 
@@ -39,12 +44,28 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-`POST /ingest` takes a PDF file upload, `POST /ask` takes `{"question": "...", "k": 5}` and returns the top evidence chunks with scores.
+`POST /ingest` takes a PDF file upload, `POST /ask` takes `{"question": "...", "k": 5}` and returns the generated answer, citations, and the evidence chunks it used.
+
+`/ask` needs an OpenAI key (generation only — retrieval works without it):
+
+```bash
+export OPENAI_API_KEY=sk-...
+uvicorn app.main:app --reload
+```
+
+Without the key, `/ask` returns a 503 telling you exactly that, instead
+of a traceback.
 
 Quick check without HTTP:
 
 ```bash
 python scripts/ask_check.py mydoc.pdf "what is this about?"
+```
+
+Run the v1 eval set (needs the key too):
+
+```bash
+python scripts/eval_check.py mydoc.pdf
 ```
 
 ## Key decisions so far
@@ -55,3 +76,6 @@ python scripts/ask_check.py mydoc.pdf "what is this about?"
 - **/ask returns evidence, not answers.** I would rather ship retrieval I can defend than a fake answer stitched together with string templates. The generator is the next real step.
 - **Re-ingesting is idempotent:** the store upserts on deterministic ids, so uploading the same PDF twice refreshes it instead of crashing on duplicate ids. Bit me once, fixed it properly.
 - **File uploads need python-multipart** — FastAPI won't accept `UploadFile` without it. Learned that from the error message, not the docs.
+- **Generator: OpenAI, gpt-4o-mini.** I picked OpenAI over Anthropic for one boring reason: the API is the simplest to call and the mini model is cheap enough to experiment freely. Temperature 0.2 — low enough to stick to the evidence, not so low the answers read like a robot. If I outgrow it, the generator module's interface (`generate_answer(question, evidence)`) stays the same and only the client changes.
+- **Citations are parsed, not trusted.** The prompt numbers evidence chunks [1], [2], ... and demands [n] markers in the answer; then a regex pulls the markers back out and maps them to chunk sources. Markers pointing past the evidence list get dropped — a model citing [99] out of 5 chunks is hallucinating, and I don't want to launder that into a real citation.
+- **The eval set proves behavior, not truth.** Six doc-agnostic questions with "what good looks like" notes — I read the outputs and judge. It checks the pipeline *behaves* (cites sources, says "I don't know" on the trap question); scoring factual correctness per document is a harder, later problem.
