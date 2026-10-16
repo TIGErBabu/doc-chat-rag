@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from app.ingest import chunk_text, load_pdf
 from app.embeddings import embed
+from app.generator import LLMNotConfiguredError, generate_answer
 from app.retrieval import retrieve
 from app.store import add
 
@@ -51,19 +52,22 @@ class AskRequest(BaseModel):
 
 @app.post("/ask")
 def ask(request: AskRequest):
-    """Question -> retrieve + rerank -> evidence chunks with scores.
+    """Question -> retrieve + rerank -> LLM answer with citations.
 
-    TODO: wire the generator. Right now this returns the retrieved
-    evidence only — no LLM answers anything yet. Next step is to feed
-    these chunks (with their sources) into an LLM and return an answer
-    with citations. Shipping the honest incremental version first.
+    Evidence chunks stay in the response so the answer is checkable.
+    Without OPENAI_API_KEY this returns 503 with setup instructions
+    instead of crashing — retrieval itself needs no key.
     """
     evidence = retrieve(request.question, k=request.k)
+    try:
+        result = generate_answer(request.question, evidence)
+    except LLMNotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     return {
         "question": request.question,
         "evidence": evidence,
-        # TODO: replace evidence-only response with a generated answer + citations
-        "answer": None,
+        "answer": result["answer"],
+        "citations": result["citations"],
     }
 
 
