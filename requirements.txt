@@ -4,5 +4,6 @@ python-multipart  # fastapi needs this to accept file uploads (/ingest)
 pypdf
 sentence-transformers
 chromadb
-# --- deciding later ---
-# openai / anthropic  (llm api — needed for the /ask endpoint)
+openai  # llm api for the /ask generator (needs OPENAI_API_KEY in the env)
+# --- possible later ---
+# anthropic  (alternative llm provider — openai won for now: simplest api, cheap mini model)
