@@ -1,8 +1,10 @@
 """doc-chat-rag — FastAPI entrypoint."""
 import os
 import tempfile
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.ingest import chunk_text, load_pdf
@@ -71,4 +73,9 @@ def ask(request: AskRequest):
     }
 
 
-# TODO: simple UI — a page with an upload box and a question box
+# Simple UI: one static page, served by this same service. Mounted last so
+# the API routes (/health, /ingest, /ask) match first. html=True makes
+# GET / serve index.html. The path is anchored to this file (not the cwd)
+# so it works whether you run uvicorn from the repo root or elsewhere.
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="static")
