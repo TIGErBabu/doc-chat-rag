@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>doc-chat-rag</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px;
+         margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.4rem; }
+  section { border: 1px solid #ccc; border-radius: 8px; padding: 1rem;
+            margin-bottom: 1rem; }
+  button { padding: 0.4rem 0.9rem; cursor: pointer; }
+  input[type=text] { width: 70%; padding: 0.4rem; }
+  .status { color: #555; font-size: 0.9rem; margin-top: 0.5rem; }
+  .error { color: #a00; font-size: 0.9rem; margin-top: 0.5rem;
+           white-space: pre-wrap; }
+  .answer { background: #f7f7f7; border-radius: 6px; padding: 0.75rem;
+            margin-top: 0.75rem; white-space: pre-wrap; }
+  .citations { margin-top: 0.75rem; font-size: 0.9rem; }
+  .citations li { margin-bottom: 0.4rem; }
+  .citations .src { color: #555; }
+</style>
+</head>
+<body>
+
+<h1>doc-chat-rag</h1>
+<p>Upload PDFs, ask questions, get answers with citations.</p>
+
+<section>
+  <h2>1. Upload a PDF</h2>
+  <input type="file" id="pdf" accept=".pdf">
+  <button id="uploadBtn">Upload</button>
+  <div class="status" id="uploadStatus"></div>
+  <div class="error" id="uploadError"></div>
+</section>
+
+<section>
+  <h2>2. Ask a question</h2>
+  <input type="text" id="question" placeholder="What is this document about?">
+  <button id="askBtn">Ask</button>
+  <div class="status" id="askStatus"></div>
+  <div class="error" id="askError"></div>
+  <div class="answer" id="answer" hidden></div>
+  <ol class="citations" id="citations"></ol>
+</section>
+
+<script>
+// escape() — never inject raw model output as HTML.
+function escape(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+}
+
+document.getElementById("uploadBtn").addEventListener("click", async () => {
+  const file = document.getElementById("pdf").files[0];
+  const status = document.getElementById("uploadStatus");
+  const err = document.getElementById("uploadError");
+  status.textContent = ""; err.textContent = "";
+  if (!file) { err.textContent = "Pick a PDF first."; return; }
+
+  status.textContent = "Uploading and chunking…";
+  const form = new FormData();
+  form.append("pdf", file);
+  try {
+    const res = await fetch("/ingest", { method: "POST", body: form });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.detail || "upload failed");
+    status.textContent =
+      `Stored ${body.chunks} chunks from ${body.source}. Ready to ask.`;
+  } catch (e) {
+    status.textContent = "";
+    err.textContent = "Upload failed: " + e.message;
+  }
+});
+
+document.getElementById("askBtn").addEventListener("click", async () => {
+  const q = document.getElementById("question").value.trim();
+  const status = document.getElementById("askStatus");
+  const err = document.getElementById("askError");
+  const answerBox = document.getElementById("answer");
+  const citeList = document.getElementById("citations");
+  status.textContent = ""; err.textContent = "";
+  answerBox.hidden = true; citeList.innerHTML = "";
+  if (!q) { err.textContent = "Type a question first."; return; }
+
+  status.textContent = "Retrieving and answering…";
+  try {
+    const res = await fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q, k: 5 }),
+    });
+    const body = await res.json();
+    status.textContent = "";
+    if (res.status === 503) {
+      // No API key on the server. The 503 detail carries the setup
+      // instructions, so just show it plainly.
+      err.textContent = "Can't generate an answer right now: " + body.detail;
+      return;
+    }
+    if (!res.ok) throw new Error(body.detail || "ask failed");
+    answerBox.innerHTML = escape(body.answer);
+    answerBox.hidden = false;
+    for (const c of body.citations || []) {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="src">[${c.chunk}] ${escape(c.source)}</span><br>` +
+                     escape(c.excerpt);
+      citeList.appendChild(li);
+    }
+  } catch (e) {
+    status.textContent = "";
+    err.textContent = "Ask failed: " + e.message;
+  }
+});
+</script>
+
+</body>
+</html>
