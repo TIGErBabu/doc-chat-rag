@@ -18,12 +18,11 @@ API in FastAPI, served with Docker.
 
 ## Status
 
-Day 4 — the generator is wired in: `/ask` now returns a real LLM answer
-with citations, not just evidence chunks. There's also a v1 eval set
-(`scripts/eval_check.py`) — six golden questions with "what good looks
-like" notes for eyeball evaluation, including one deliberate trap
-("capital of France") to check the model says "I don't know" instead of
-answering from training data.
+Day 5 — there's a UI now: one static page (`static/index.html`) served by
+FastAPI itself. Upload box hits /ingest and shows the chunk count, the
+question box hits /ask, and answers render with their citations listed
+underneath. If `OPENAI_API_KEY` isn't set, `/ask` 503s and the page says
+so plainly instead of spinning forever.
 
 ## Roadmap
 
@@ -31,7 +30,7 @@ answering from training data.
 - [x] Embeddings + vector store
 - [x] Retrieval + reranking
 - [x] FastAPI endpoints (/ingest, /ask)
-- [ ] Simple UI
+- [x] Simple UI
 - [x] Dockerfile
 - [x] Wire an LLM into /ask (answer + citations)
 - [ ] Deploy
@@ -75,6 +74,7 @@ python scripts/eval_check.py mydoc.pdf
 - **Reranking:** two-stage — bi-encoder pulls 3k candidates from Chroma, then a cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) re-sorts them and I keep the top k. I picked the cross-encoder over a keyword-overlap heuristic because it actually reads the question next to each chunk, and it costs no new dependency (same sentence-transformers library, tiny local model). Dead simple to explain on a whiteboard.
 - **/ask returns evidence, not answers.** I would rather ship retrieval I can defend than a fake answer stitched together with string templates. The generator is the next real step.
 - **Re-ingesting is idempotent:** the store upserts on deterministic ids, so uploading the same PDF twice refreshes it instead of crashing on duplicate ids. Bit me once, fixed it properly.
+- **UI: one static page, no framework.** I considered Streamlit (fast to build, but it would be a second service to deploy and babysit) and React (overkill for an upload box and a question box). Serving a single hand-written HTML file through FastAPI's StaticFiles keeps the whole thing one deployable unit — same container, same port, nothing new to learn. The JS is ~80 lines of fetch calls. If this ever needs auth, chat history, or streaming answers, that's when a real frontend earns its keep.
 - **File uploads need python-multipart** — FastAPI won't accept `UploadFile` without it. Learned that from the error message, not the docs.
 - **Generator: OpenAI, gpt-4o-mini.** I picked OpenAI over Anthropic for one boring reason: the API is the simplest to call and the mini model is cheap enough to experiment freely. Temperature 0.2 — low enough to stick to the evidence, not so low the answers read like a robot. If I outgrow it, the generator module's interface (`generate_answer(question, evidence)`) stays the same and only the client changes.
 - **Citations are parsed, not trusted.** The prompt numbers evidence chunks [1], [2], ... and demands [n] markers in the answer; then a regex pulls the markers back out and maps them to chunk sources. Markers pointing past the evidence list get dropped — a model citing [99] out of 5 chunks is hallucinating, and I don't want to launder that into a real citation.
