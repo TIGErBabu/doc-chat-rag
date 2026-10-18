@@ -7,3 +7,4 @@ venv/
 *.pdf
 *.db
 .DS_Store
+chroma_db/
