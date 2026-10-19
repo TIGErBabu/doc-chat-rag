@@ -1,0 +1,13 @@
+# One-click Render deploy: dashboard -> New -> Blueprint -> point at this repo.
+services:
+  - type: web
+    name: doc-chat-rag
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # Set this in the dashboard after deploy; /ask answers need it,
+      # everything else (upload, retrieval, the UI) works without it.
+      - key: OPENAI_API_KEY
+        sync: false
