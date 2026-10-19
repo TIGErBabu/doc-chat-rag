@@ -67,6 +67,20 @@ Run the v1 eval set (needs the key too):
 python scripts/eval_check.py mydoc.pdf
 ```
 
+## Deploying
+
+One click on Render: dashboard -> New -> Blueprint -> point at this repo
+(`render.yaml` does the rest). Then set `OPENAI_API_KEY` in the dashboard —
+`/ask` answers need it; uploading, retrieval, and the UI all work without it.
+
+Two free-tier caveats worth knowing: the disk is ephemeral, so anything
+uploaded through `/ingest` is forgotten when the service restarts; and the
+embedding/rerank models download on first use, so the first request after a
+cold start is slow. The Dockerfile listens on the `PORT` env var Render
+hands it (8000 when running locally).
+
+Live URL: _not deployed yet_
+
 ## Key decisions so far
 
 - **Embeddings:** sentence-transformers (all-MiniLM-L6-v2), local and free. OpenAI embeddings are the production upgrade path.
