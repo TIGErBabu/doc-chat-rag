@@ -18,11 +18,24 @@ API in FastAPI, served with Docker.
 
 ## Status
 
-Day 5 — there's a UI now: one static page (`static/index.html`) served by
-FastAPI itself. Upload box hits /ingest and shows the chunk count, the
-question box hits /ask, and answers render with their citations listed
-underneath. If `OPENAI_API_KEY` isn't set, `/ask` 503s and the page says
-so plainly instead of spinning forever.
+The full pipeline is built and tested locally: PDF upload -> chunk ->
+embed -> Chroma, two-stage retrieval with reranking, grounded answers
+with citations, and a one-page UI — all served from a single container.
+Deploy is a one-click Render Blueprint away (`render.yaml` + the
+PORT-ready Dockerfile); the live URL is pending that one step.
+
+## Evaluation
+
+The v1 eval set is six doc-agnostic questions (`scripts/eval_check.py`),
+run over any PDF. Five check the pipeline behaves on grounded
+questions — a short summary, the main topics, a one-sentence summary,
+extracted dates/names/numbers, and honest hedging when the document has
+no limitations passage to quote. The sixth is a trap: "What is the
+capital of France?" must come back "I don't know based on the provided
+documents" instead of an answer from the model's training data — that's
+the groundedness check. There is no scorer; I read the outputs and
+judge. It proves the pipeline behaves, not that it's factually right —
+scoring factual correctness per document is the next eval problem.
 
 ## Roadmap
 
