@@ -1,0 +1,10 @@
+# Keep the docker build context lean — the .venv alone is gigabytes.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.git/
+chroma_db/
+*.pdf
+.env
+.DS_Store
