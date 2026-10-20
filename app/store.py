@@ -5,15 +5,22 @@ persists to disk. Enough for this stage of the project. If this ever
 needs concurrent writers or a real production database, swap this module
 for pgvector — the interface (add/query) stays the same, callers don't care.
 """
+from pathlib import Path
+
 import chromadb
 
 _client = None
+
+# Chroma persists to disk — anchor the path to this file (not the cwd),
+# same trick as the static dir in main.py. Scripts and the API then agree
+# on one store no matter where you run them from.
+_CHROMA_DIR = Path(__file__).resolve().parent.parent / "chroma_db"
 
 
 def _get_collection():
     global _client
     if _client is None:
-        _client = chromadb.PersistentClient(path="./chroma_db")
+        _client = chromadb.PersistentClient(path=str(_CHROMA_DIR))
     return _client.get_or_create_collection("docs")
 
 
