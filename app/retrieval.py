@@ -65,7 +65,7 @@ def retrieve(query: str, k: int = 5) -> list[dict]:
 
     Oversample (3k) from the vector store, then let the cross-encoder
     pick the real top k. k=5 keeps the evidence set small enough that
-    a future LLM generator won't drown in context.
+    the generator doesn't drown in context.
     """
     query_vector = embed([query])[0]
     candidates = query_scored(query_vector, n=k * 3)
