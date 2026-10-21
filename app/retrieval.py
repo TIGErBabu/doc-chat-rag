@@ -10,15 +10,17 @@ Two stages, because each one is good at a different thing:
 2. Cross-encoder rerank (slow, precise): a small model reads the
    (question, chunk) pair together and scores how relevant the chunk is.
    Too slow to run over the whole store, perfect for re-sorting a
-   shortlist. Same sentence-transformers library, no new dependency —
-   the model (ms-marco-MiniLM-L-6-v2) is tiny and runs locally.
+   shortlist. Runs on fastembed like the embedding model — the model is
+   ms-marco-MiniLM-L-6-v2, via Xenova's ONNX export of it (the
+   cross-encoder org's own repo has no ONNX build fastembed can load;
+   same weights, lighter runtime).
 
 So: retrieve 3x candidates with the bi-encoder, rerank them with the
 cross-encoder, keep the top k. Textbook two-stage retrieval.
 """
-from sentence_transformers import CrossEncoder
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-from app.embeddings import embed
+from app.embeddings import MODEL_CACHE_DIR, embed
 from app.store import query_scored
 
 _reranker = None
@@ -28,7 +30,9 @@ def _get_reranker():
     # Lazy load, same reason as the embedding model — weights are slow.
     global _reranker
     if _reranker is None:
-        _reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        _reranker = TextCrossEncoder(
+            "Xenova/ms-marco-MiniLM-L-6-v2", cache_dir=str(MODEL_CACHE_DIR)
+        )
     return _reranker
 
 
@@ -42,8 +46,7 @@ def rerank(query: str, candidates: list[dict], top_k: int) -> list[dict]:
     if not candidates:
         return []
     reranker = _get_reranker()
-    pairs = [(query, c["text"]) for c in candidates]
-    scores = reranker.predict(pairs)
+    scores = list(reranker.rerank(query, [c["text"] for c in candidates]))
     ranked = sorted(
         zip(candidates, scores), key=lambda pair: float(pair[1]), reverse=True
     )
