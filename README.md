@@ -21,8 +21,12 @@ API in FastAPI, served with Docker.
 The full pipeline is built and tested locally: PDF upload -> chunk ->
 embed -> Chroma, two-stage retrieval with reranking, grounded answers
 with citations, and a one-page UI — all served from a single container.
-Deploy is a one-click Render Blueprint away (`render.yaml` + the
-PORT-ready Dockerfile); the live URL is pending that one step.
+Deployed on Render's free tier: https://doc-chat-rag.onrender.com serves
+/health and the UI page. The model-loading endpoints (`/ingest`, `/ask`)
+hang and then 502 on the free tier — 512 MB isn't enough for torch plus
+the transformer models, and the whole container restarts (~5 min down).
+So the live URL is a UI demo for now; the pipeline itself runs locally.
+Fixing this means a bigger instance or a model diet — decision pending.
 
 ## Evaluation
 
@@ -82,7 +86,7 @@ python scripts/eval_check.py mydoc.pdf
 
 ## Deploying
 
-One click on Render: dashboard -> New -> Blueprint -> point at this repo
+Deployed on Render via dashboard -> New -> Blueprint pointed at this repo
 (`render.yaml` does the rest). Then set `OPENAI_API_KEY` in the dashboard —
 `/ask` answers need it; uploading, retrieval, and the UI all work without it.
 
@@ -92,7 +96,11 @@ embedding/rerank models download on first use, so the first request after a
 cold start is slow. The Dockerfile listens on the `PORT` env var Render
 hands it (8000 when running locally).
 
-Live URL: _not deployed yet_
+Live URL: https://doc-chat-rag.onrender.com — `/health` and the UI page
+work; `/ingest` and `/ask` hang then 502 on the free tier (512 MB RAM
+isn't enough to load the embedding + rerank models; the container
+restarts, ~5 min downtime). Until that's fixed (bigger instance or a
+model diet), the live URL is a UI demo only — the pipeline runs locally.
 
 ## Key decisions so far
 
