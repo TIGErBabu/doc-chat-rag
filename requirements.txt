@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 python-multipart  # fastapi needs this to accept file uploads (/ingest)
 pypdf
-sentence-transformers
+fastembed  # embeddings + reranker on onnxruntime — no torch, keeps RAM and image size down
 chromadb
 openai  # llm api for the /ask generator (needs OPENAI_API_KEY in the env)
 # --- possible later ---
