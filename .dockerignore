@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 .git/
 chroma_db/
+model_cache/
 *.pdf
 .env
 .DS_Store

@@ -8,3 +8,4 @@ venv/
 *.db
 .DS_Store
 chroma_db/
+model_cache/
