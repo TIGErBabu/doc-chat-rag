@@ -1,4 +1,5 @@
 """doc-chat-rag — FastAPI entrypoint."""
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -9,9 +10,11 @@ from pydantic import BaseModel
 
 from app.ingest import chunk_text, load_pdf
 from app.embeddings import embed
-from app.generator import LLMNotConfiguredError, generate_answer
+from app.generator import LLMNotConfiguredError, ensure_configured, generate_answer
 from app.retrieval import retrieve
 from app.store import add
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="doc-chat-rag")
 
@@ -41,6 +44,15 @@ def ingest(pdf: UploadFile = File(...)):
         vectors = embed(chunks)
         source = os.path.basename(pdf.filename)
         add(chunks, vectors, source=source)
+    except Exception:
+        # A bad PDF or a model/store failure shouldn't take the request
+        # down with a bare 500 — log the traceback, answer with JSON.
+        logger.exception("ingest failed for %s", pdf.filename)
+        raise HTTPException(
+            status_code=500,
+            detail="ingest failed — the PDF could not be processed. "
+            "The service logs have the details.",
+        )
     finally:
         os.unlink(tmp_path)
 
@@ -58,9 +70,25 @@ def ask(request: AskRequest):
 
     Evidence chunks stay in the response so the answer is checkable.
     Without OPENAI_API_KEY this returns 503 with setup instructions
-    instead of crashing — retrieval itself needs no key.
+    instead of crashing. The key is checked before retrieval: without
+    it there is no answer to generate, so fail fast — and a retrieval
+    failure can never crash ahead of the setup message.
     """
-    evidence = retrieve(request.question, k=request.k)
+    try:
+        ensure_configured()
+    except LLMNotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    try:
+        evidence = retrieve(request.question, k=request.k)
+    except Exception:
+        logger.exception("retrieval failed")
+        raise HTTPException(
+            status_code=503,
+            detail="retrieval is unavailable right now — the embedding/rerank "
+            "models failed to load or run. Try again shortly.",
+        )
+
     try:
         result = generate_answer(request.question, evidence)
     except LLMNotConfiguredError as e:

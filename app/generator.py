@@ -23,6 +23,26 @@ class LLMNotConfiguredError(Exception):
     """
 
 
+_NOT_CONFIGURED_MESSAGE = (
+    "OPENAI_API_KEY is not set. /ask needs it to generate answers. "
+    "Get a key at https://platform.openai.com/api-keys and set it "
+    "with: export OPENAI_API_KEY=sk-... "
+    "(Retrieval still works without it — only answer generation is blocked.)"
+)
+
+
+def ensure_configured() -> None:
+    """Raise LLMNotConfiguredError if there's no API key to generate with.
+
+    Lets callers fail fast with the setup message before doing expensive
+    work — /ask checks this before retrieval, so the 503 always comes
+    back clean and fast, and a retrieval-model problem can never
+    swallow it or crash ahead of it.
+    """
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise LLMNotConfiguredError(_NOT_CONFIGURED_MESSAGE)
+
+
 _client = None
 
 
@@ -31,17 +51,10 @@ def _get_client():
     # when someone actually asks a question.
     global _client
     if _client is None:
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            raise LLMNotConfiguredError(
-                "OPENAI_API_KEY is not set. /ask needs it to generate answers. "
-                "Get a key at https://platform.openai.com/api-keys and set it "
-                "with: export OPENAI_API_KEY=sk-... "
-                "(Retrieval still works without it — only answer generation is blocked.)"
-            )
+        ensure_configured()
         from openai import OpenAI
 
-        _client = OpenAI(api_key=api_key)
+        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     return _client
 
 
