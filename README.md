@@ -11,7 +11,7 @@ Building a retrieval-augmented generation (RAG) app from scratch — part of my 
 ```
 PDFs -> chunk -> embed -> chroma
                               |
-user question -> retrieve -> rerank -> LLM (gpt-4o-mini) -> answer + citations
+user question -> retrieve -> rerank -> LLM (gemini-3.8-flash) -> answer + citations
 ```
 
 API in FastAPI, served with Docker.
@@ -62,10 +62,12 @@ uvicorn app.main:app --reload
 
 `POST /ingest` takes a PDF file upload, `POST /ask` takes `{"question": "...", "k": 5}` and returns the generated answer, citations, and the evidence chunks it used.
 
-`/ask` needs an OpenAI key (generation only — retrieval works without it):
+`/ask` needs a Gemini API key (generation only — retrieval works
+without it). Keys are free from Google AI Studio
+(https://aistudio.google.com) — no credit card, no prepaid credits:
 
 ```bash
-export OPENAI_API_KEY=sk-...
+export GEMINI_API_KEY=...
 uvicorn app.main:app --reload
 ```
 
@@ -87,7 +89,7 @@ python scripts/eval_check.py mydoc.pdf
 ## Deploying
 
 Deployed on Render via dashboard -> New -> Blueprint pointed at this repo
-(`render.yaml` does the rest). Then set `OPENAI_API_KEY` in the dashboard —
+(`render.yaml` does the rest). Then set `GEMINI_API_KEY` in the dashboard —
 `/ask` answers need it; uploading, retrieval, and the UI all work without it.
 
 Two free-tier caveats worth knowing: the disk is ephemeral, so anything
@@ -111,6 +113,6 @@ model diet), the live URL is a UI demo only — the pipeline runs locally.
 - **Re-ingesting is idempotent:** the store upserts on deterministic ids, so uploading the same PDF twice refreshes it instead of crashing on duplicate ids. Bit me once, fixed it properly.
 - **UI: one static page, no framework.** I considered Streamlit (fast to build, but it would be a second service to deploy and babysit) and React (overkill for an upload box and a question box). Serving a single hand-written HTML file through FastAPI's StaticFiles keeps the whole thing one deployable unit — same container, same port, nothing new to learn. The JS is ~80 lines of fetch calls. If this ever needs auth, chat history, or streaming answers, that's when a real frontend earns its keep.
 - **File uploads need python-multipart** — FastAPI won't accept `UploadFile` without it. Learned that from the error message, not the docs.
-- **Generator: OpenAI, gpt-4o-mini.** I picked OpenAI over Anthropic for one boring reason: the API is the simplest to call and the mini model is cheap enough to experiment freely. Temperature 0.2 — low enough to stick to the evidence, not so low the answers read like a robot. If I outgrow it, the generator module's interface (`generate_answer(question, evidence)`) stays the same and only the client changes.
+- **Generator: Gemini (gemini-3.8-flash), through Google's OpenAI-compatible endpoint.** It started as OpenAI's gpt-4o-mini — the simplest API to call, and the mini model was cheap enough to experiment freely. That worked until the deployed app hit OpenAI's paywall: the API wants prepaid credits before the first call, and this project's budget is $0. Gemini's free tier doesn't (an AI Studio key, no card). And because Google exposes an OpenAI-compatible endpoint, the swap was three values — base_url, key, model name — inside the same OpenAI SDK; the chat.completions call itself never changed. Temperature 0.2 — low enough to stick to the evidence, not so low the answers read like a robot. The generator module's interface (`generate_answer(question, evidence)`) stays the same, so swapping providers again is still a client-only change.
 - **Citations are parsed, not trusted.** The prompt numbers evidence chunks [1], [2], ... and demands [n] markers in the answer; then a regex pulls the markers back out and maps them to chunk sources. Markers pointing past the evidence list get dropped — a model citing [99] out of 5 chunks is hallucinating, and I don't want to launder that into a real citation.
 - **The eval set proves behavior, not truth.** Six doc-agnostic questions with "what good looks like" notes — I read the outputs and judge. It checks the pipeline *behaves* (cites sources, says "I don't know" on the trap question); scoring factual correctness per document is a harder, later problem.
