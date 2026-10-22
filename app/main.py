@@ -69,7 +69,7 @@ def ask(request: AskRequest):
     """Question -> retrieve + rerank -> LLM answer with citations.
 
     Evidence chunks stay in the response so the answer is checkable.
-    Without OPENAI_API_KEY this returns 503 with setup instructions
+    Without GEMINI_API_KEY this returns 503 with setup instructions
     instead of crashing. The key is checked before retrieval: without
     it there is no answer to generate, so fail fast — and a retrieval
     failure can never crash ahead of the setup message.
