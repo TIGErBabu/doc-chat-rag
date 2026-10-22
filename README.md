@@ -18,15 +18,23 @@ API in FastAPI, served with Docker.
 
 ## Status
 
-The full pipeline is built and tested locally: PDF upload -> chunk ->
-embed -> Chroma, two-stage retrieval with reranking, grounded answers
-with citations, and a one-page UI — all served from a single container.
-Deployed on Render's free tier: https://doc-chat-rag.onrender.com serves
-/health and the UI page. The model-loading endpoints (`/ingest`, `/ask`)
-hang and then 502 on the free tier — 512 MB isn't enough for torch plus
-the transformer models, and the whole container restarts (~5 min down).
-So the live URL is a UI demo for now; the pipeline itself runs locally.
-Fixing this means a bigger instance or a model diet — decision pending.
+Done, and live: https://doc-chat-rag.onrender.com — the full pipeline
+runs end to end on Render's free tier. Upload a PDF, ask a question, get
+a grounded answer with citations. Verified live, not just locally.
+
+Getting there took one real fight. The first deploy 502'd on every
+model-loading request: torch plus the two transformer models peaked at
+768 MB, and the free tier gives you 512 MB. The fix was a runtime swap,
+not a bigger instance — embeddings and reranking now run on fastembed
+(ONNX builds of the same models), peaking around 385 MB, and the models
+are baked into the Docker image at build time, so a cold start never
+downloads anything. Generation runs on Google's Gemini free tier through
+its OpenAI-compatible endpoint (see the generator decision below).
+Total running cost: $0.
+
+Free-tier caveats that remain: the service sleeps when idle, so the
+first hit after a quiet spell takes ~50s to wake up; and the disk is
+ephemeral, so uploaded PDFs are forgotten when the service restarts.
 
 ## Evaluation
 
@@ -50,7 +58,7 @@ scoring factual correctness per document is the next eval problem.
 - [x] Simple UI
 - [x] Dockerfile
 - [x] Wire an LLM into /ask (answer + citations)
-- [ ] Deploy
+- [x] Deploy — live on Render's free tier
 - [x] Eval set v1 — eyeball checks (factual-correctness scoring is a later problem)
 
 ## Running it
@@ -94,15 +102,14 @@ Deployed on Render via dashboard -> New -> Blueprint pointed at this repo
 
 Two free-tier caveats worth knowing: the disk is ephemeral, so anything
 uploaded through `/ingest` is forgotten when the service restarts; and the
-embedding/rerank models download on first use, so the first request after a
-cold start is slow. The Dockerfile listens on the `PORT` env var Render
-hands it (8000 when running locally).
+service sleeps when idle, so the first request after a quiet spell waits
+~50s for it to wake. The models are baked into the image at build time,
+so waking up never means downloading them. The Dockerfile listens on the
+`PORT` env var Render hands it (8000 when running locally).
 
-Live URL: https://doc-chat-rag.onrender.com — `/health` and the UI page
-work; `/ingest` and `/ask` hang then 502 on the free tier (512 MB RAM
-isn't enough to load the embedding + rerank models; the container
-restarts, ~5 min downtime). Until that's fixed (bigger instance or a
-model diet), the live URL is a UI demo only — the pipeline runs locally.
+Live URL: https://doc-chat-rag.onrender.com — verified end to end:
+`/health`, the UI page, `/ingest` (PDF in, chunks stored), and `/ask`
+(grounded answer with citations) all work on the free tier.
 
 ## Key decisions so far
 
