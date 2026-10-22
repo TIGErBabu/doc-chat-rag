@@ -24,9 +24,9 @@ class LLMNotConfiguredError(Exception):
 
 
 _NOT_CONFIGURED_MESSAGE = (
-    "OPENAI_API_KEY is not set. /ask needs it to generate answers. "
-    "Get a key at https://platform.openai.com/api-keys and set it "
-    "with: export OPENAI_API_KEY=sk-... "
+    "GEMINI_API_KEY is not set. /ask needs it to generate answers. "
+    "Get a free key at https://aistudio.google.com (API keys) and set it "
+    "with: export GEMINI_API_KEY=... "
     "(Retrieval still works without it — only answer generation is blocked.)"
 )
 
@@ -39,7 +39,7 @@ def ensure_configured() -> None:
     back clean and fast, and a retrieval-model problem can never
     swallow it or crash ahead of it.
     """
-    if not os.environ.get("OPENAI_API_KEY"):
+    if not os.environ.get("GEMINI_API_KEY"):
         raise LLMNotConfiguredError(_NOT_CONFIGURED_MESSAGE)
 
 
@@ -49,12 +49,23 @@ _client = None
 def _get_client():
     # Lazy, same pattern as embeddings/store — only build the client
     # when someone actually asks a question.
+    #
+    # The client is the OpenAI SDK, but it points at Google's Gemini
+    # API through its OpenAI-compatible endpoint: same chat.completions
+    # call shape, just a different base_url, key, and model name.
+    # Why Gemini: the free tier needs no credit card and no prepaid
+    # credits, which keeps this demo at $0. (This called OpenAI
+    # directly — gpt-4o-mini — until the $0-credit wall; the README's
+    # decision log tells the whole story.)
     global _client
     if _client is None:
         ensure_configured()
         from openai import OpenAI
 
-        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        _client = OpenAI(
+            api_key=os.environ["GEMINI_API_KEY"],
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
     return _client
 
 
@@ -117,7 +128,7 @@ def generate_answer(question: str, evidence: list[dict]) -> dict:
     """Full generation step: question + evidence -> answer + citations.
 
     Returns {"answer": str, "citations": [...]}. Raises
-    LLMNotConfiguredError if OPENAI_API_KEY is missing.
+    LLMNotConfiguredError if GEMINI_API_KEY is missing.
     """
     if not evidence:
         # Nothing retrieved — don't waste an API call asking the model
@@ -130,7 +141,7 @@ def generate_answer(question: str, evidence: list[dict]) -> dict:
 
     client = _get_client()
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gemini-3.8-flash",
         messages=_build_prompt(question, evidence),
         temperature=0.2,  # low = stick to the evidence, don't get creative
         max_tokens=500,
