@@ -4,6 +4,6 @@ python-multipart  # fastapi needs this to accept file uploads (/ingest)
 pypdf
 fastembed  # embeddings + reranker on onnxruntime — no torch, keeps RAM and image size down
 chromadb
-openai  # llm api for the /ask generator (needs OPENAI_API_KEY in the env)
+openai  # the sdk for the /ask generator, pointed at gemini's openai-compatible endpoint (needs GEMINI_API_KEY in the env)
 # --- possible later ---
-# anthropic  (alternative llm provider — openai won for now: simplest api, cheap mini model)
+# anthropic  (alternative llm provider, if the generator ever moves again — its interface stays the same)

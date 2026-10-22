@@ -12,7 +12,7 @@ data. That's the groundedness check.
 Run from the repo root:
     python scripts/eval_check.py <path-to-pdf> [k]
 
-Needs OPENAI_API_KEY in the env (generation step).
+Needs GEMINI_API_KEY in the env (generation step).
 Not part of the app, just a scratch script.
 """
 import os
