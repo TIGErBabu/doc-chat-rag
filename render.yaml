@@ -9,5 +9,6 @@ services:
     envVars:
       # Set this in the dashboard after deploy; /ask answers need it,
       # everything else (upload, retrieval, the UI) works without it.
-      - key: OPENAI_API_KEY
+      # Free key from Google AI Studio — no card, no prepaid credits.
+      - key: GEMINI_API_KEY
         sync: false
